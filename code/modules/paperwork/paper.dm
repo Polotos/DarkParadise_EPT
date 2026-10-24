@@ -252,46 +252,78 @@
 
 	var/locid = 0
 	var/laststart = 1
-	var/textindex = 1
+	var/textstart = 1
+	var/textend = 1
 	while(locid <= MAX_PAPER_FIELDS)
 		var/istart = 0
 		if(links)
-			istart = findtext_char(info_links, "<span class=\"paper_field\">", laststart)
+			istart = findtext_char(info_links, "<span class=\"paper_field\"", laststart)
 		else
-			istart = findtext_char(info, "<span class=\"paper_field\">", laststart)
+			istart = findtext_char(info, "<span class=\"paper_field\"", laststart)
 
 		if(!istart)
-			return // No field found with matching id
+			return
 
-		laststart = istart+1
+		laststart = istart + 1
 		locid++
 		if(locid == id)
-			var/iend = 1
 			if(links)
-				iend = findtext_char(info_links, "</span>", istart)
+				// Добавляем ссылки В КОНЕЦ содержимого (перед </span>)
+				textend = findtext_char(info_links, "</span>", istart)
+				textstart = textend
 			else
-				iend = findtext_char(info, "</span>", istart)
-
-			textindex = iend
+				// Заменяем содержимое между ">" и "</span>"
+				var/open_end = findtext_char(info, ">", istart)
+				textstart = open_end + 1
+				textend = findtext_char(info, "</span>", istart)
 			break
 
 	if(links)
-		var/before = copytext_char(info_links, 1, textindex)
-		var/after = copytext_char(info_links, textindex)
+		var/before = copytext_char(info_links, 1, textstart)
+		var/after = copytext_char(info_links, textend)
 		info_links = before + text + after
 	else
-		var/before = copytext_char(info, 1, textindex)
-		var/after = copytext_char(info, textindex)
+		var/before = copytext_char(info, 1, textstart)
+		var/after = copytext_char(info, textend)
 		info = before + text + after
 		updateinfolinks()
 
 /obj/item/paper/proc/updateinfolinks()
 	info_links = info
 	for(var/i in 1 to fields)
-		var/write_1 = "<font face=\"[deffont]\"><a href='byond://?src=[UID()];write=[i]'>write</a></font>"
-		var/write_2 = "<font face=\"[deffont]\"><a href='byond://?src=[UID()];auto_write=[i]'><span style=\"color: #409F47; font-size: 10px\">\[a\]</span></a></font>"
-		addtofield(i, "[write_1][write_2]", 1)
+		var/ftype = get_field_type(i)
+		if(ftype)
+			var/autofill_link = "<font face=\"[deffont]\"><a href='byond://?src=[UID()];autofill=[i];ftype=[ftype]'><span style=\"color: #3A78B3; font-size: 10px\">\[fill\]</span></a></font>"
+			addtofield(i, "[autofill_link]", 1)
+		else
+			var/write_1 = "<font face=\"[deffont]\"><a href='byond://?src=[UID()];write=[i]'>write</a></font>"
+			var/write_2 = "<font face=\"[deffont]\"><a href='byond://?src=[UID()];auto_write=[i]'><span style=\"color: #409F47; font-size: 10px\">\[a\]</span></a></font>"
+			addtofield(i, "[write_1][write_2]", 1)
 	info_links = info_links + "<font face=\"[deffont]\"><a href='byond://?src=[UID()];write=end'>write</a></font>" + "<font face=\"[deffont]\"><a href='byond://?src=[UID()];auto_write=end'><span style=\"color: #409F47; font-size: 10px\">\[A\]</span></a></font>"
+
+/obj/item/paper/proc/get_field_type(field_id)
+	var/locid = 0
+	var/laststart = 1
+	while(locid <= MAX_PAPER_FIELDS)
+		var/istart = findtext_char(info, "<span class=\"paper_field\"", laststart)
+		if(!istart)
+			return null
+		laststart = istart + 1
+		locid++
+		if(locid == field_id)
+			var/open_end = findtext_char(info, ">", istart)
+			if(!open_end)
+				return null
+			var/open_tag = copytext_char(info, istart, open_end)
+			var/fill_pos = findtext(open_tag, "data-fill=\"")
+			if(!fill_pos)
+				return null
+			var/value_start = fill_pos + length("data-fill=\"")
+			var/value_end = findtext(open_tag, "\"", value_start)
+			if(!value_end)
+				return null
+			return copytext(open_tag, value_start, value_end)
+	return null
 
 /obj/item/paper/proc/clearpaper()
 	info = null
@@ -302,14 +334,14 @@
 	update_icon()
 
 /obj/item/paper/proc/parsepencode(t, obj/item/pen/P, mob/user as mob)
-	t = pencode_to_html(html_encode(t), usr, P, TRUE, TRUE, TRUE, deffont, signfont, crayonfont)
+	t = pencode_to_html(html_encode(t), user, P, TRUE, TRUE, TRUE, deffont, signfont, crayonfont)
 	return t
 
 /obj/item/paper/proc/populatefields()
 	//Count the fields
 	var/laststart = 1
 	while(fields < MAX_PAPER_FIELDS)
-		var/i = findtext_char(info, "<span class=\"paper_field\">", laststart)
+		var/i = findtext_char(info, "<span class=\"paper_field\"", laststart)
 		if(!i)
 			break
 		laststart = i+1
@@ -337,7 +369,17 @@
 		\[list\] - \[/list\] : A list.<br>
 		\[*\] : A dot used for lists.<br>
 		\[hr\] : Adds a horizontal rule.
-		\[time\] : Inserts the current station time in HH:MM:SS.<br>"})
+		\[time\] : Inserts the current station time in HH:MM:SS.<br>
+		\[fsign\] : Автозаполняемое поле подписи.<br>
+		\[fname\] : Автозаполняемое поле имени.<br>
+		\[fjob\] : Автозаполняемое поле должности.<br>
+		\[ftime\] : Автозаполняемое поле времени станции.<br>
+		\[fdate\] : Автозаполняемое поле даты.<br>
+		\[fstation\] : Автозаполняемое поле названия станции.<br>
+		\[fgender\] : Автозаполняемое поле пола.<br>
+		\[fspecies\] : Автозаполняемое поле расы.<br>
+		\[faccount\] : Автозаполняемое поле номера аккаунта.<br>
+		\[fpin\] : Автозаполняемое поле пин-кода.<br>"})
 	popup.open(FALSE)
 
 /obj/item/paper/proc/topic_href_write(mob/user, id, input_element)
@@ -360,6 +402,49 @@
 		addtofield(text2num(id), input_element) // He wants to edit a field, let him.
 	else
 		info += input_element // Oh, he wants to edit to the end of the file, let him.
+
+	populatefields()
+	updateinfolinks()
+	item_write.on_write(src, user)
+	show_content(user, forceshow = TRUE, infolinks = TRUE)
+	update_icon()
+
+/obj/item/paper/proc/topic_href_autofill(mob/user, id, ftype)
+	var/obj/item/item_write = user.get_active_hand()
+	if(!is_pen(item_write) && !iscrayon(item_write))
+		return
+	if(HAS_TRAIT(item_write, TRAIT_TRANSFORM_ACTIVE))
+		balloon_alert(user, "защёлкнуто!")
+		return
+	if(loc != user && !Adjacent(user, recurse = 2) && !loc.Adjacent(user))
+		return
+
+	// ftype -> pencode, чтобы использовать готовую логику pencode_to_html (signfont, дата станции и т.п.)
+	var/static/list/pencode_map = list(
+		"sign"    = "\[sign\]",
+		"name"    = "\[name\]",
+		"job"     = "\[job\]",
+		"time"    = "\[time\]",
+		"date"    = "\[date\]",
+		"station" = "\[station\]",
+		"gender"  = "\[gender\]",
+		"species" = "\[species\]",
+		"account" = "\[account\]",
+		"pin"     = "\[pin\]",
+	)
+	var/pencode = pencode_map[ftype]
+	if(!pencode)
+		return
+
+	var/input_element = parsepencode(pencode, item_write, user)
+
+	if(QDELETED(src) || !loc || (loc != user && !Adjacent(user, recurse = 2) && !loc.Adjacent(user)))
+		return
+
+	if(id != "end")
+		addtofield(text2num(id), input_element)
+	else
+		info += input_element
 
 	populatefields()
 	updateinfolinks()
@@ -435,6 +520,9 @@
 				input_element = usr.dna.species
 
 		topic_href_write(usr, id, input_element)
+
+	if(href_list["autofill"])
+		topic_href_autofill(usr, href_list["autofill"], href_list["ftype"])
 
 	if(href_list["write"])
 		var/id = href_list["write"]																			/* Becаuse HTML */

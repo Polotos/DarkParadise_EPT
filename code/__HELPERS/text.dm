@@ -463,6 +463,15 @@
 
 	if(enable_fields)
 		input_text = replacetext(input_text, "\[field\]", "<span class=\"paper_field\"></span>")
+		input_text = replacetext(input_text, "\[fsign\]",     "<span class=\"paper_field\" data-fill=\"sign\"></span>")
+		input_text = replacetext(input_text, "\[fjob\]",      "<span class=\"paper_field\" data-fill=\"job\"></span>")
+		input_text = replacetext(input_text, "\[ftime\]",     "<span class=\"paper_field\" data-fill=\"time\"></span>")
+		input_text = replacetext(input_text, "\[fdate\]",     "<span class=\"paper_field\" data-fill=\"date\"></span>")
+		input_text = replacetext(input_text, "\[fstation\]",  "<span class=\"paper_field\" data-fill=\"station\"></span>")
+		input_text = replacetext(input_text, "\[fgender\]",   "<span class=\"paper_field\" data-fill=\"gender\"></span>")
+		input_text = replacetext(input_text, "\[fspecies\]",  "<span class=\"paper_field\" data-fill=\"species\"></span>")
+		input_text = replacetext(input_text, "\[faccount\]",  "<span class=\"paper_field\" data-fill=\"account\"></span>")
+		input_text = replacetext(input_text, "\[fpin\]",      "<span class=\"paper_field\" data-fill=\"pin\"></span>")
 
 	if(enable_formatting)
 		input_text = replacetext(input_text, "\[h1\]", "<h1>")
@@ -522,7 +531,9 @@
 		input_text = replacetext(input_text, "\[station\]", "[station_name()]")
 		input_text = replacetext(input_text, "\[gender\]", "[user_mob ? user_mob.gender : "neuter"]")
 		input_text = replacetext(input_text, "\[species\]", "[user_mob?.dna?.species ? user_mob.dna.species : UNKNOWN_STATUS_RUS]")
-
+		input_text = replacetext(input_text, "\[job\]",     "[user_mob?.job ? get_job_title_ru(user_mob.job) : "Без должности"]")
+		input_text = replacetext(input_text, "\[account\]", "[user_mob?.mind?.initial_account?.account_number ? user_mob.mind.initial_account.account_number : "Без акаунта"]")
+		input_text = replacetext(input_text, "\[pin\]",     "[user_mob?.mind?.initial_account?.remote_access_pin ? user_mob.mind.initial_account.remote_access_pin : "Без пинкода"]")
 		// Apply font styling unless disabled
 		if(!disable_font)
 			if(pen_item)
